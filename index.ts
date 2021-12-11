@@ -1,6 +1,6 @@
 import EventEmitter from 'events';
 import TypedEmitter from 'typed-emitter';
-import express from 'express';
+import express, { Response } from 'express';
 const app = express();
 
 /***** EVENTS *****/
@@ -8,6 +8,9 @@ const app = express();
 interface ChatEvents {
   error: (error: Error) => void;
   message: (body: string, showUserName: boolean) => void;
+  user_join: (res: Response, name: string) => void;
+  user_loggedIn: () => void;
+  user_left: () => void;
 }
 
 const chatEmitter = new EventEmitter() as TypedEmitter<ChatEvents>;
@@ -26,7 +29,36 @@ const sendText = (text: string | number, showUserName = true) => {
   }
 };
 
+const userJoin = (res: Response, name: string): void => {
+  clientId++;
+  clients[clientId] = res;
+  clientNames[clientId] = name;
+
+  chatEmitter.emit('message', name + ' connected!', false); // Send connected in message
+
+  chatEmitter.emit('user_loggedIn'); // Send logged in message
+};
+
+const userLeft = (): void => {
+  delete clients[clientId];
+  actUserName = '';
+  chatEmitter.emit('message', clientNames[clientId] + ' disconnected!', false); // Send disconnected in message
+  delete clientNames[clientId];
+};
+
+const userLoggedIn = (): void => {
+  let allMates = '';
+  for (const cliId in clientNames) {
+    allMates += `${clientNames[cliId]}`;
+    if (Number(cliId) < clientId) allMates += ' ';
+  }
+  chatEmitter.emit('message', `logged in [${allMates}]`, false); // Send logged in message
+};
+
 chatEmitter.addListener('message', sendText);
+chatEmitter.addListener('user_join', userJoin);
+chatEmitter.addListener('user_loggedIn', userLoggedIn);
+chatEmitter.addListener('user_left', userLeft);
 
 /***** VARIABLES *****/
 import { Clients, ClientNames } from './types';
@@ -49,25 +81,12 @@ app.get('/chat/:name', (req, res) => {
     Connection: 'keep-alive',
   });
   res.write('\n');
-  (function () {
-    clientId++;
-    clients[clientId] = res;
-    clientNames[clientId] = req.params.name;
-    req.on('close', () => {
-      delete clients[clientId];
-      actUserName = '';
-      chatEmitter.emit('message', clientNames[clientId] + ' disconnected!', false); // Send disconnected in message
-      delete clientNames[clientId];
-    });
-  })();
 
-  chatEmitter.emit('message', req.params.name + ' connected!', false); // Send connected in message
-  let allMates = '';
-  for (const cliId in clientNames) {
-    allMates += `${clientNames[cliId]}`;
-    if (Number(cliId) < clientId) allMates += ' ';
-  }
-  chatEmitter.emit('message', `logged in [${allMates}]`, false); // Send logged in message
+  req.on('close', () => {
+    chatEmitter.emit('user_left'); // Send left massage and delete user data
+  });
+
+  chatEmitter.emit('user_join', res, req.params.name); // Save user ame and response and sent connected and join messages
 });
 
 app.post('/write/', (req, res) => {
