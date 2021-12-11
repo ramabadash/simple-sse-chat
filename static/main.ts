@@ -13,11 +13,31 @@ if (myName != null) {
 
 if (enteredName) {
   const source = new EventSource('/chat/' + myName);
-  source.onmessage = (e) => {
-    chatElem.value += e.data + '\n';
-    chatElem.scrollTop = chatElem.scrollHeight;
-    textElem.value = '';
-    textElem.placeholder = 'Write your message here...';
+  source.onmessage = ({ data }) => {
+    data = JSON.parse(data);
+    // Users list data
+    if (data.users) {
+      //Remove last users list
+      const lastUsersListElem = document.getElementsByTagName('ul')[0];
+      if (lastUsersListElem) {
+        lastUsersListElem.remove();
+      }
+      // Create new users list
+      const usersUl = document.createElement('ul');
+      for (const user of data.users) {
+        const userLi = document.createElement('li');
+        userLi.textContent = user;
+        usersUl.appendChild(userLi);
+      }
+
+      document.body.appendChild(usersUl);
+    } else {
+      // Message data
+      chatElem.value += data + '\n';
+      chatElem.scrollTop = chatElem.scrollHeight;
+      textElem.value = '';
+      textElem.placeholder = 'Write your message here...';
+    }
   };
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises

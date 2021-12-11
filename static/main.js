@@ -46,11 +46,33 @@ if (myName != null) {
 }
 if (enteredName) {
     var source = new EventSource('/chat/' + myName);
-    source.onmessage = function (e) {
-        chatElem.value += e.data + '\n';
-        chatElem.scrollTop = chatElem.scrollHeight;
-        textElem.value = '';
-        textElem.placeholder = 'Write your message here...';
+    source.onmessage = function (_a) {
+        var data = _a.data;
+        data = JSON.parse(data);
+        // Users list data
+        if (data.users) {
+            //Remove last users list
+            var lastUsersListElem = document.getElementsByTagName('ul')[0];
+            if (lastUsersListElem) {
+                lastUsersListElem.remove();
+            }
+            // Create new users list
+            var usersUl = document.createElement('ul');
+            for (var _i = 0, _b = data.users; _i < _b.length; _i++) {
+                var user = _b[_i];
+                var userLi = document.createElement('li');
+                userLi.textContent = user;
+                usersUl.appendChild(userLi);
+            }
+            document.body.appendChild(usersUl);
+        }
+        else {
+            // Message data
+            chatElem.value += data + '\n';
+            chatElem.scrollTop = chatElem.scrollHeight;
+            textElem.value = '';
+            textElem.placeholder = 'Write your message here...';
+        }
     };
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     frmElem.addEventListener('submit', function (e) { return __awaiter(_this, void 0, void 0, function () {

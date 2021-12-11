@@ -9,8 +9,8 @@ interface ChatEvents {
   error: (error: Error) => void;
   message: (body: string, showUserName: boolean) => void;
   user_join: (res: Response, name: string) => void;
-  user_loggedIn: () => void;
   user_left: () => void;
+  update_users_list: () => void;
 }
 
 const chatEmitter = new EventEmitter() as TypedEmitter<ChatEvents>;
@@ -21,9 +21,9 @@ const sendText = (text: string | number, showUserName = true) => {
     const date = new Date();
     const timestamp = `[${date.getHours()}:${date.getMinutes()}]`;
     if (showUserName) {
-      data = `data: ${timestamp} <${actUserName}> ${text}\n\n`;
+      data = `data: ${JSON.stringify(`${timestamp} <${actUserName}> ${text}`)}\n\n`;
     } else {
-      data = `data: ${timestamp} ${text}\n\n`;
+      data = `data: ${JSON.stringify(`${timestamp} ${text}`)}\n\n`;
     }
     clients[clientId].write(data);
   }
@@ -33,32 +33,32 @@ const userJoin = (res: Response, name: string): void => {
   clientId++;
   clients[clientId] = res;
   clientNames[clientId] = name;
+  clientsArr.push(name);
 
   chatEmitter.emit('message', name + ' connected!', false); // Send connected in message
 
-  chatEmitter.emit('user_loggedIn'); // Send logged in message
+  chatEmitter.emit('update_users_list'); // Send updated users list
 };
 
 const userLeft = (): void => {
+  clientsArr = clientsArr.filter((client) => clientNames[clientId] !== client);
   delete clients[clientId];
   actUserName = '';
   chatEmitter.emit('message', clientNames[clientId] + ' disconnected!', false); // Send disconnected in message
   delete clientNames[clientId];
+  chatEmitter.emit('update_users_list');
 };
 
-const userLoggedIn = (): void => {
-  let allMates = '';
-  for (const cliId in clientNames) {
-    allMates += `${clientNames[cliId]}`;
-    if (Number(cliId) < clientId) allMates += ' ';
+const sendUsersList = (): void => {
+  for (const clientId in clients) {
+    clients[clientId].write(`data: ${JSON.stringify({ users: clientsArr })}\n\n`);
   }
-  chatEmitter.emit('message', `logged in [${allMates}]`, false); // Send logged in message
 };
 
 chatEmitter.addListener('message', sendText);
 chatEmitter.addListener('user_join', userJoin);
-chatEmitter.addListener('user_loggedIn', userLoggedIn);
 chatEmitter.addListener('user_left', userLeft);
+chatEmitter.addListener('update_users_list', sendUsersList);
 
 /***** VARIABLES *****/
 import { Clients, ClientNames } from './types';
@@ -67,6 +67,7 @@ let clientId = 0;
 const clients: Clients = {};
 let actUserName = '';
 const clientNames: ClientNames = {};
+let clientsArr: string[] = [];
 
 /***** MIDDLEWARES *****/
 app.use(express.json());
