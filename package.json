@@ -11,6 +11,8 @@
   "author": "Rama Badash",
   "license": "MIT",
   "dependencies": {
+    "@types/axios": "^0.14.0",
+    "axios": "^0.24.0",
     "body-parser": "^1.18.3",
     "express": "^4.16.4",
     "npm": "^6.4.1"
